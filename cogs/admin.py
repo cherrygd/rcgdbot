@@ -37,7 +37,14 @@ class Administration(commands.Cog):
     @app_commands.command(name="config", description="Настройка файла config")
     @app_commands.default_permissions(administrator=True)
     @app_commands.guild_only()
-    async def config(self, interaction: discord.Interaction, votes_to_procced: Optional[int] = -1, report_channel: discord.TextChannel = None, role: discord.Role = None):
+    async def config(
+        self, 
+        interaction: discord.Interaction, 
+        votes_to_procced: Optional[int] = -1, 
+        report_channel: discord.TextChannel = None, 
+        role: discord.Role = None, 
+        rates_channel: discord.TextChannel = None
+    ):
         try:
             with open("HAHAHA/config.json", "r") as file:
                 config = json.load(file)
@@ -46,6 +53,7 @@ class Administration(commands.Cog):
             config["VotesToAdvance"] = votes_to_procced if votes_to_procced != -1 else config["VotesToAdvance"]
             config["ReportChannel"] = str(report_channel.id) if report_channel != None else config["ReportChannel"]
             config["MentRole"] = str(role.id) if role != None else config["MentRole"]
+            config["RatesChannel"] = str(rates_channel.id) if rates_channel != None else config["RatesChannel"]
 
             votes = config["VotesToAdvance"]
 

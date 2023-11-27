@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from discord.utils import MISSING
 import re
 import discord
@@ -99,7 +99,7 @@ class FormForReq(ui.Modal, title="Отправка уровня хелперам
             print(f"[FormForReq | sender_id] : {sender_id}")
 
             try:
-                parser.get_parsed_level_data(lvl_id)
+                level_data = parser.get_parsed_level_data(lvl_id)
             except IndexError:
                 await interaction.response.send_message(f"<:no:1141747496813609011> Ошибка: указанный уровень не быль найден. Проверьте корректность введённого Вами ID, и повторите попытку!\n*Введённый ID: {lvl_id}*", ephemeral=True)
                 return
@@ -114,8 +114,14 @@ class FormForReq(ui.Modal, title="Отправка уровня хелперам
             
             
             if lvl_difficulty not in range(1, 11):
-                await interaction.response.send_message("Ошибка: указанная сложность должна входить в диапазон от 1 (<:auto:1142464075964629002>) до 10 (<:demon:1141747367696154645>)!", ephemeral=True)
+                await interaction.response.send_message("<:no:1141747496813609011> Ошибка: указанная сложность должна входить в диапазон от 1 (<:auto:1142464075964629002>) до 10 (<:demon:1141747367696154645>)!", ephemeral=True)
                 return
+            
+
+            if level_data[3] != 0:
+                await interaction.response.send_message("<:no:1141747496813609011> Ошибка: уровень уже оценён", ephemeral=True)
+                return
+            
             db = connect()
             cursos = db.cursor()
 
@@ -144,6 +150,55 @@ class RequestsCog(commands.Cog):
     def __init__(self, bot : commands.Bot):
         self.bot = bot
 
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        try:
+            with open("config.json", "r") as file:
+                config = json.load(file)
+
+            if message.channel.id != int(config["RatesChannel"]):
+                return
+            id_from_message = int(message.embeds[0].footer.text[10:])
+            db = connect()
+            cursor = db.cursor()
+
+            cursor.execute(
+                "SELECT sender_id FROM requests_table WHERE level_id = '%s'",
+                (id_from_message,)
+            )
+
+            isInDB = False
+            member_id = None
+            for x in cursor:
+                isInDB = True
+                member_id = int(list(x)[0])
+
+            if isInDB:
+                await message.reply(
+                    f"<:starrate:1141747404283056248> Поздравляем, {message.guild.get_member(member_id).mention}, твой реквест рейтнули!"
+                ) if message.guild.get_member(member_id) != None else ...
+
+                print(f"[LEVEL_RATE_NOTIFY]: Уровень {id_from_message} был рейтнут")
+
+                with open("HAHAHA/killed_requests.json", "r") as file:
+                    killed_reqs = json.load(file)
+
+                killed_reqs["rated"] += 1
+
+                with open("HAHAHA/killed_requests.json", "w") as file:
+                    json.dump(killed_reqs, file, indent=2)
+
+                cursor.execute(
+                    "DELETE FROM requests_table WHERE level_id = '%s'", 
+                    (id_from_message)
+                )
+                db.commit()
+                await message.guild.get_member(239145251221012488).send(f"Рейтнули, проверь: {message.channel.mention}")
+
+            db.close()
+        except Exception as e:
+            print(f"Ошибка при отправке сообщения о рейтнутом реквесте: {e}")
+            db.close()
 
     async def punish_req(self, interaction: discord.Interaction):
         try:
@@ -320,16 +375,18 @@ class RequestsCog(commands.Cog):
 
         await interaction.response.edit_message(content=None, embed=emb, view=view)
 
-        
-        
+               
 
     # [(0) ID уровня, (1) ссылка на видос, (2) ID отправителя, (3) голосов "За", (4) голосов "Против", (5) ID реквеста]
-    async def get_level_to_review(self, count, interaction, user_db, votes_to_send) -> list:
+    async def get_level_to_review(self, count : list, interaction: discord.Interaction, user_db, votes_to_send) -> List[list]:
         try:
+            print(f"АРГУМЕНТЫ ФУНКЦИИ:\ncount: {count}\nuser_db: {user_db}\nvotes_to_send: {votes_to_send}")
             try:
                 rand_id = random.choice(count)
+                print(f"rand_id = {rand_id}")
             except IndexError:
-                await interaction.response.send_message("Для тебя уровни закончились. Попробуй немного позже", delete_after=5)
+                await interaction.message.delete() if interaction.message != None else ...
+                await interaction.channel.send("Для тебя уровни закончились. Попробуй немного позже", delete_after=5)
 
             db = connect()
             cursor = db.cursor()
@@ -340,9 +397,7 @@ class RequestsCog(commands.Cog):
                 FROM
                     requests_table AS rt
                 WHERE
-                    rt.req_id = {rand_id} AND
-                    rt.is_sent_to_h = 0 AND
-                    rt.req_id NOT IN (select rl.req_id from requests_logs as rl where rl.reviewer_id = {user_db[0]})
+                    rt.req_id = {rand_id}
                 GROUP BY
                     rt.level_id, rt.video_link, rt.sender_id, rt.votes_yes, rt.votes_no, rt.req_id;            
                 """
@@ -353,14 +408,30 @@ class RequestsCog(commands.Cog):
             for x in cursor:
                 level_data = list(x)
 
+            level = parser.get_parsed_level_data(int(level_data[0]))
+            print(f"level_data (ФУНКЦИЯ): {level_data}\nlevel (ФУНКЦИЯ): {level}")
+
+            if level == None:
+                try:  
+                    cursor.execute("DELETE FROM requests_table WHERE req_id = %s", (rand_id,))
+                    db.commit()
+                    count.remove(rand_id)
+                    db.close()
+                except Exception as e:
+                    print(e)
+
+                return await self.get_level_to_review(count, interaction, user_db, votes_to_send)
+
             print(f"[review | get_level | level_data]: {level_data}")
             print(f"[review | get_level] Уровень найден: голосов \"За\" - {level_data[3]} / голосов \"Против\" - {level_data[4]}")
-            return level_data
+            db.close()
+            return [level, level_data]
         except Exception as e:
             await interaction.response.send_message("Что-то пошло не так...", delete_after=5)
             print(e)
             db.close()
             return
+
 
 
     async def get_level_to_send(self, count, interaction, user_db) -> list:
@@ -407,7 +478,6 @@ class RequestsCog(commands.Cog):
 
 
 
-
     async def generate_level_embed(self, level, level_data, original_guild_id) -> discord.Embed:
         try:
             emb = discord.Embed(title="Уровень нуждается в оценке", description=f"__{level[0]}__ by __{level[1]}__", colour=discord.Colour.blurple())
@@ -443,15 +513,18 @@ class RequestsCog(commands.Cog):
             print(e)
 
 
+
     @commands.Cog.listener()
     async def on_ready(self):
         print("Requests cog launched")
+
 
 
     @commands.Cog.listener()
     async def on_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
         if isinstance(error, app_commands.CommandOnCooldown):
             await interaction.response.send_message(f"Команду нельзя использовать больше **1** раза в **10** секунд!", ephemeral=True)
+
 
 
     @commands.Cog.listener()
@@ -517,6 +590,7 @@ class RequestsCog(commands.Cog):
         db.close()
 
     
+
     @app_commands.command(name="place_req_message", description="Отправляет в этот канал сообщение с кнопкой для реквестов")
     @app_commands.guild_only()
     @app_commands.default_permissions(administrator=True)
@@ -546,6 +620,8 @@ class RequestsCog(commands.Cog):
         except Exception as e:
             print(e)
 
+   
+   
     @app_commands.command(name="request", description="Отправляет уровень на оценку")
     @app_commands.guild_only()
     @app_commands.checks.cooldown(rate=1, per=10)
@@ -562,8 +638,6 @@ class RequestsCog(commands.Cog):
         except Exception as e:
             print(e)
             await interaction.response.send_message("Что-то пошло не так при исполнении команды...", ephemeral=True)
-
-
 
 
 
@@ -606,6 +680,8 @@ class RequestsCog(commands.Cog):
                 db.close()
                 return
             
+            await interaction.response.defer(thinking=True)
+            
             q = f"SELECT req_id FROM requests_table WHERE is_sent_to_h = 0 AND req_id NOT IN(select req_id from requests_logs where reviewer_id = {user_db[0]})"
             print(f"[review | SELECT querry]: {q}")
             cursor.execute(q)
@@ -627,7 +703,7 @@ class RequestsCog(commands.Cog):
             print(f"[review | count] : {count}")
 
             if count == []:
-                await interaction.response.send_message("Пока что, уровней на оценку нет", delete_after=5)
+                await interaction.followup.send("Пока что, уровней на оценку нет")
                 db.close()
                 return
             
@@ -642,20 +718,24 @@ class RequestsCog(commands.Cog):
 
             level_data = await self.get_level_to_review(count, interaction, user_db, votes_to_send) # [(0) ID уровня, (1) ссылка на видос, (2) ID отправителя, (3) голосов "За", (4) голосов "Против", (5) ID реквеста]
             
+            level = level_data[0]
+            level_data = level_data[1]
             print(f"[review | level_data]: {level_data}")
-            level = parser.get_parsed_level_data(int(level_data[0]))
             print(f"[review | level]: {level}")
 
             emb = await self.generate_level_embed(level, level_data, original_guild_id)
 
-            yes_button = ui.Button(label="За", style=discord.ButtonStyle.green, custom_id=f"yes_{original_guild_id}_{level_data[5]}_{votes_to_send}_{user_db[0]}", emoji="<:yes:1141747509899841637>")
-            no_button = ui.Button(label="Против", style=discord.ButtonStyle.red, custom_id=f"no_{original_guild_id}_{level_data[5]}_{votes_to_send}_{user_db[0]}", emoji="<:no:1141747496813609011>")
-            report_button = ui.Button(label="Репорт", style=discord.ButtonStyle.red, custom_id=f"{level_data[5]}_{user_db[0]}_{level[2]}_{level_data[6]}_{original_guild_id}", emoji="<:report:1141769582378496091>")
+            yes_button = ui.Button(label="За", style=discord.ButtonStyle.green, custom_id=f"yes_{original_guild_id}_{level_data[5]}_{votes_to_send}_{user_db[0]}_{level_data[3]+level_data[4]}_{level_data[4]}", emoji="<:yes:1141747509899841637>")
+            no_button = ui.Button(label="Против", style=discord.ButtonStyle.red, custom_id=f"no_{original_guild_id}_{level_data[5]}_{votes_to_send}_{user_db[0]}_{level_data[3]+level_data[4]}_{level_data[4]}", emoji="<:no:1141747496813609011>")
+            report_button = ui.Button(label="Репорт", style=discord.ButtonStyle.red, custom_id=f"{level_data[5]}_{user_db[0]}_{level[2]}_{level_data[6]}_{original_guild_id}_{level_data[3]+level_data[4]}_{level_data[4]}", emoji="<:report:1141769582378496091>")
             finish_button = ui.Button(label="Закончить", style=discord.ButtonStyle.gray, custom_id=f"finish", row=4)
 
 
             async def yes_no_callback(interaction: discord.Interaction):
                 try:
+                    await interaction.message.delete()
+                    await interaction.response.defer(thinking=True)
+
                     view = ui.View()
                     db = connect()
                     cursor = db.cursor()
@@ -666,28 +746,41 @@ class RequestsCog(commands.Cog):
                     req_id = int(custom_id[2])
                     votes_to_send = int(custom_id[3])
                     staff_id = int(custom_id[4])
+                    overall_votes = int(custom_id[5])
+                    disagree = int(custom_id[6])
 
-                    try:
-                        cursor.execute(
-                            "INSERT INTO requests_logs (req_id, reviewer_id, reviewer_role) VALUES (%s, %s, 1)",
-                            (req_id, staff_id)
-                        )
-                        cursor.execute(
-                            f"UPDATE requests_table SET votes_{yes_no} = votes_{yes_no}+1 WHERE req_id = {req_id}"
-                        )
-                        cursor.execute(
-                            "UPDATE requests_table SET is_sent_to_h = IF(votes_yes+votes_no>=%s, 1, 0) WHERE req_id = %s",
-                            (votes_to_send, req_id)
-                        )
-                        cursor.execute(
-                            "DELETE FROM requests_table WHERE votes_no > votes_yes AND is_sent_to_h = 1 AND req_id = %s",
-                            (req_id,)
-                        )
-                        db.commit()
-                    except Exception as e:
-                        db.rollback()
-                        await interaction.response.send_message(f"Что-то пошло не так...\nОшибка: {e}", ephemeral=True)
-                        return
+                    if yes_no != 'afterrep':
+                        try:
+                            cursor.execute(
+                                "INSERT INTO requests_logs (req_id, reviewer_id, reviewer_role) VALUES (%s, %s, 1)",
+                                (req_id, staff_id)
+                            )
+                            cursor.execute(
+                                f"UPDATE requests_table SET votes_{yes_no} = votes_{yes_no}+1 WHERE req_id = {req_id}"
+                            )
+                            cursor.execute(
+                                "UPDATE requests_table SET is_sent_to_h = IF(votes_yes+votes_no>=%s, 1, 0) WHERE req_id = %s",
+                                (votes_to_send, req_id)
+                            )
+                            cursor.execute(
+                                "DELETE FROM requests_table WHERE votes_no > votes_yes AND is_sent_to_h = 1 AND req_id = %s",
+                                (req_id,)
+                            )
+
+                            with open("HAHAHA/killed_requests.json", "r") as file:
+                                killed_req = json.load(file)
+
+                            print(killed_req)
+                            killed_req['rejected'] = int(killed_req['rejected']) + 1 if overall_votes >= votes_to_send and disagree > overall_votes - disagree else killed_req['rejected']
+                            
+                            with open("HAHAHA/killed_requests.json", "w") as file:
+                                json.dump(killed_req, file, indent=2)
+                            
+                            db.commit()
+                        except Exception as e:
+                            db.rollback()
+                            await interaction.followup.send(f"Что-то пошло не так...\nОшибка: {e}", ephemeral=True)
+                            return
 
                     view.timeout = None
 
@@ -728,16 +821,17 @@ class RequestsCog(commands.Cog):
                     #     return
 
                     level_data = await self.get_level_to_review(count, interaction, user_db, votes_to_send)
+                    level = level_data[0]
+                    level_data = level_data[1]
             
                     print(f"[review | level_data]: {level_data}")
-                    level = parser.get_parsed_level_data(int(level_data[0]))
                     print(f"[review | level]: {level}")
 
                     emb = await self.generate_level_embed(level, level_data, original_guild_id)
 
-                    yes_button = ui.Button(label="За", style=discord.ButtonStyle.green, custom_id=f"yes_{original_guild_id}_{level_data[5]}_{votes_to_send}_{staff_id}", emoji="<:yes:1141747509899841637>")
-                    no_button = ui.Button(label="Против", style=discord.ButtonStyle.red, custom_id=f"no_{original_guild_id}_{level_data[5]}_{votes_to_send}_{staff_id}", emoji="<:no:1141747496813609011>")
-                    report_button = ui.Button(label="Репорт", style=discord.ButtonStyle.red, custom_id=f"{level_data[5]}_{user_db[0]}_{level[2]}_{level_data[6]}_{original_guild_id}", emoji="<:report:1141769582378496091>")
+                    yes_button = ui.Button(label="За", style=discord.ButtonStyle.green, custom_id=f"yes_{original_guild_id}_{level_data[5]}_{votes_to_send}_{staff_id}_{overall_votes}_{disagree}", emoji="<:yes:1141747509899841637>")
+                    no_button = ui.Button(label="Против", style=discord.ButtonStyle.red, custom_id=f"no_{original_guild_id}_{level_data[5]}_{votes_to_send}_{staff_id}_{overall_votes}_{disagree}", emoji="<:no:1141747496813609011>")
+                    report_button = ui.Button(label="Репорт", style=discord.ButtonStyle.red, custom_id=f"{level_data[5]}_{user_db[0]}_{level[2]}_{level_data[6]}_{original_guild_id}_{overall_votes}_{disagree}", emoji="<:report:1141769582378496091>")
                     finish_button = ui.Button(label="Закончить", style=discord.ButtonStyle.gray, custom_id=f"finish", row=4)
 
                     yes_button.callback = yes_no_callback
@@ -750,7 +844,7 @@ class RequestsCog(commands.Cog):
                     view.add_item(report_button)
                     view.add_item(finish_button)
 
-                    await interaction.response.edit_message(content=None, embed=emb, view=view)
+                    await interaction.followup.send(content=None, embed=emb, view=view)
 
 
                 except Exception as e:
@@ -773,6 +867,8 @@ class RequestsCog(commands.Cog):
                     level_id = int(custom_id[2])                    
                     requested_stars = int(custom_id[3])
                     original_guild_id = int(custom_id[4])
+                    overall_votes = int(custom_id[5])
+                    disagree = int(custom_id[6])
 
                     cursor.execute(f"SELECT video_link, sender_id FROM requests_table WHERE req_id = {req_id}")
                     sender_id = ""
@@ -794,7 +890,7 @@ class RequestsCog(commands.Cog):
                     cursor.execute(q)
                     db.commit()
 
-                    yes_button = ui.Button(label="Да", style=discord.ButtonStyle.green, custom_id=f"afterrep_{original_guild_id}_{req_id}_{votes_to_send}_{staff_id}", emoji="<:yes:1141747509899841637>")
+                    yes_button = ui.Button(label="Да", style=discord.ButtonStyle.green, custom_id=f"afterrep_{original_guild_id}_{req_id}_{votes_to_send}_{staff_id}_{overall_votes}_{disagree}", emoji="<:yes:1141747509899841637>")
                     finish_button = ui.Button(label="Закончить", style=discord.ButtonStyle.gray, custom_id=f"finish")
 
                     yes_button.callback = yes_no_callback
@@ -851,13 +947,21 @@ class RequestsCog(commands.Cog):
             view.add_item(report_button)
             view.add_item(finish_button)
 
-            await interaction.response.send_message(embed=emb, view=view)
+            await interaction.followup.send(embed=emb, view=view)
             db.close()
         except Exception as e:
             print(e)
-            await interaction.response.send_message("Что-то пошло не так. В случае использования этой команды, вполне вероятно, что закончились уровни на оценку. Попробуй немного позже", ephemeral=True)
+            if interaction.response.is_done():
+                await interaction.followup.send(
+                    "Что-то пошло не так. В случае использования этой команды, вполне вероятно, что закончились уровни на оценку. Попробуй немного позже",
+                    ephemeral=True
+                )
+            else:
+                await interaction.response.send_message(
+                    "Что-то пошло не так. В случае использования этой команды, вполне вероятно, что закончились уровни на оценку. Попробуй немного позже", 
+                    ephemeral=True
+                )
             db.close()
-
 
 
 
@@ -888,7 +992,7 @@ class RequestsCog(commands.Cog):
             print(f"[rate | len(user_db)]: {len(user_db)}")
 
             if len(user_db) == 0:
-                await interaction.followup.send("Ты не можешь использовать эту команду, так как не являешься хелпером", delete_after=5)
+                await interaction.followup.send("Ты не можешь использовать эту команду, так как не являешься хелпером", ephemeral=True)
                 db.close()
                 return
             
@@ -1033,6 +1137,166 @@ class RequestsCog(commands.Cog):
             db.close()
 
 
+
+    @app_commands.command(name="revstats", description="Вызов меню для получения статистики из бота")
+    @app_commands.guild_only()
+    @app_commands.default_permissions(administrator=True)
+    async def rev_stats(self, interaction: discord.Interaction):
+
+        menu_emb = discord.Embed(
+            title="Меню статистики", 
+            description="Здесь можно посмотреть всю статистику о реквестах, работе стафф состава и т.д.",
+            colour=discord.Colour.purple()
+        )
+
+        view = ui.View()
+
+        async def callback(interaction: discord.Interaction):
+            try:
+                if not interaction.user.guild_permissions.administrator:
+                    await interaction.response.send_message("Для просмотра статистики необходимы права Администратора", ephemeral=True)
+                    return
+                
+                db = connect()
+                cursor = db.cursor()
+                data = list(interaction.data.values())[0]
+
+                match data:
+                    case "rev":
+                        emb = discord.Embed(
+                            title="Статистика по ревьюверам", 
+                            description="**ПРИМЕЧАНИЕ**\nЗдесь указана статистика с учётом реквестов, которые ещё не были удалены из БД",
+                            colour=discord.Colour.purple()
+                        )
+
+                        cursor.execute(
+                        """SELECT
+                                staff.id AS admin_id,
+                                staff.user_discord AS admin_discord,
+                                staff.user_role AS admin_role,
+                                COUNT(requests_logs.req_id) AS request_count
+                            FROM
+                                staff
+                            LEFT JOIN
+                                requests_logs
+                            ON
+                                staff.id = requests_logs.reviewer_id
+                            WHERE
+                                staff.user_role = 1
+                            GROUP BY
+                                staff.id, staff.user_discord, staff.user_role
+                            ORDER BY
+                                request_count DESC
+                        """)
+                        
+                        string = ""
+                        for x in cursor:
+                            data = list(x)
+                            user = interaction.guild.get_member(int(data[1]))
+                            req_counter = data[3]
+
+                            string += f"**{user.name if user != None else data[1]}**\n*Отправлено {req_counter}*\n\n"
+
+                        emb.add_field(name="Список ревьюверов", value=string)
+
+                        await interaction.response.send_message(embed=emb, ephemeral=True)
+
+                        db.close()
+
+
+                    case "help":
+                        emb = discord.Embed(
+                            title="Статистика по хелперам", 
+                            description="**ПРИМЕЧАНИЕ**\nЗдесь указана статистика с учётом реквестов, которые ещё не были удалены из БД",
+                            colour=discord.Colour.purple()
+                        )
+
+                        cursor.execute(
+                        """SELECT
+                                staff.id AS admin_id,
+                                staff.user_discord AS admin_discord,
+                                staff.user_role AS admin_role,
+                                COUNT(requests_logs.req_id) AS request_count
+                            FROM
+                                staff
+                            LEFT JOIN
+                                requests_logs
+                            ON
+                                staff.id = requests_logs.reviewer_id
+                            WHERE
+                                staff.user_role = 2
+                            GROUP BY
+                                staff.id, staff.user_discord, staff.user_role
+                            ORDER BY
+                                request_count DESC
+                        """)
+
+                        string = ""
+                        for x in cursor:
+                            data = list(x)
+                            user = interaction.guild.get_member(int(data[1]))
+                            req_counter = data[3]
+
+                            string += f"**{user.name if user != None else data[1]}**\n*Отправлено {req_counter}*\n\n"
+
+                        emb.add_field(name="Список хелперов", value=string)
+
+                        await interaction.response.send_message(embed=emb, ephemeral=True)
+
+                        db.close()
+
+
+                    case "req":
+                        emb = discord.Embed(
+                            title="Статистика по реквестам", 
+                            description="**ПРИМЕЧАНИЕ**\nЗдесь указана статистика по реквестам, считая удалённые, начиная с 27.11.23",
+                            colour=discord.Colour.purple()
+                        )
+
+                        cursor.execute(
+                        """SELECT
+                                COUNT(rt.req_id) AS request_count
+                            FROM
+                                requests_table as rt
+                        """)
+
+                        with open("HAHAHA/killed_requests.json", "r") as file:
+                            stats = json.load(file)
+
+                        overall = 0
+                        inDB = 0
+                        for x in cursor:
+                            inDB = int(list(x)[0])
+                            overall = int(list(x)[0])
+                            overall += stats["rated"] + stats["deleted"] + stats["rejected"] 
+
+                        emb.add_field(
+                            name=f"Всего реквестов: {overall}",
+                            value=f"На оценке (существуют): **{inDB}** \nРейтнуто: **{stats['rated']}** \nУдалено (Пустые реквесты): **{stats['deleted']}** \nОтклонено: **{stats['rejected']}**"
+                        )
+
+                        await interaction.response.send_message(embed=emb, ephemeral=True)
+                    
+                        db.close()
+            except Exception as e:
+                print(e)
+
+
+        b_rev = ui.Button(label="Ревьюверы", custom_id="rev", style=discord.ButtonStyle.blurple)
+        b_rev.callback = callback
+        view.add_item(b_rev)
+
+        b_rev = ui.Button(label="Хелперы", custom_id="help", style=discord.ButtonStyle.blurple)
+        b_rev.callback = callback
+        view.add_item(b_rev)
+
+        b_rev = ui.Button(label="Реквесты", custom_id="req", style=discord.ButtonStyle.blurple)
+        b_rev.callback = callback
+        view.add_item(b_rev)
+
+        await interaction.response.send_message(embed=menu_emb, view=view)
+
+        
 
 
 async def setup(bot):
