@@ -1,6 +1,5 @@
 from typing import Optional, Literal
 from discord.utils import MISSING
-import gd
 import discord
 import os
 import json

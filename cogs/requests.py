@@ -1,3 +1,4 @@
+import pandas as pd
 from typing import Optional, List
 from discord.utils import MISSING
 import re
@@ -118,7 +119,7 @@ class FormForReq(ui.Modal, title="Отправка уровня хелперам
                 return
             
 
-            if level_data[3] != 0:
+            if int(level_data[3]) != 0:
                 await interaction.response.send_message("<:no:1141747496813609011> Ошибка: уровень уже оценён", ephemeral=True)
                 return
             
@@ -690,17 +691,6 @@ class RequestsCog(commands.Cog):
             for x in cursor:
                 count.append(list(x)[0])
 
-            print(count)
-            
-            # try:
-            #     print("Я в трае")
-            #     count = [count[0], count[len(count)-1]]
-            # except IndexError:
-            #     await interaction.response.send_message("Похоже, не нашлось уровней, которые нуждаются в отправке хелперам", delete_after=5)
-            #     db.close()
-            #     return
-            
-            print(f"[review | count] : {count}")
 
             if count == []:
                 await interaction.followup.send("Пока что, уровней на оценку нет")
@@ -1151,8 +1141,133 @@ class RequestsCog(commands.Cog):
 
         view = ui.View()
 
+        async def download_callback(interaction: discord.Interaction):
+            try:
+                db = connect()
+                cursor = db.cursor()
+                data = list(interaction.data.values())[0]
+
+                match data:
+                    case "rev":
+                        cursor.execute(
+                        """SELECT
+                                staff.user_discord AS admin_discord,
+                                COUNT(requests_logs.req_id) AS request_count
+                            FROM
+                                staff
+                            LEFT JOIN
+                                requests_logs
+                            ON
+                                staff.id = requests_logs.reviewer_id
+                            WHERE
+                                staff.user_role = 1
+                            GROUP BY
+                                staff.user_discord
+                            ORDER BY
+                                request_count DESC
+                        """)
+
+                        sql_data = cursor.fetchall()
+
+                        i = 0
+                        guild = interaction.guild
+
+                        for d_id in sql_data:
+                            name = guild.get_member(d_id[0]).name if guild.get_member(d_id[0]) != None else d_id[0]
+                            sql_data[i] = (name, d_id[1])
+                            i+=1
+
+                        df = pd.DataFrame(sql_data, columns=["Ревьювер", "Кол-во оценок"])
+                        writer = pd.ExcelWriter("rev_stats.xlsx")
+                        df.to_excel(writer, sheet_name="RevStats", index=False)
+                        writer.close()
+
+                        f = open("rev_stats.xlsx", 'rb')
+                        file = discord.File(f)
+
+                        await interaction.response.edit_message(content="Excel файл", embed=None, view=None, attachments=[file])
+                        os.remove("rev_stats.xlsx")
+
+                    case "help":
+                        cursor.execute(
+                        """SELECT
+                                staff.user_discord AS admin_discord,
+                                COUNT(requests_logs.req_id) AS request_count
+                            FROM
+                                staff
+                            LEFT JOIN
+                                requests_logs
+                            ON
+                                staff.id = requests_logs.reviewer_id
+                            WHERE
+                                staff.user_role = 2
+                            GROUP BY
+                                staff.user_discord
+                            ORDER BY
+                                request_count DESC
+                        """)
+                        sql_data = cursor.fetchall()
+
+                        i = 0
+                        guild = interaction.guild
+                        
+                        for d_id in sql_data:
+                            name = guild.get_member(d_id[0]).name if guild.get_member(d_id[0]) != None else d_id[0]
+                            sql_data[i] = (name, d_id[1])
+                            i+=1
+
+                        df = pd.DataFrame(sql_data, columns=["Хелпер", "Кол-во оценок"])
+                        writer = pd.ExcelWriter("help_stats.xlsx")
+                        df.to_excel(writer, sheet_name="HelpStats", index=False)
+                        writer.close()
+
+                        f = open("help_stats.xlsx", 'rb')
+                        file = discord.File(f)
+
+                        await interaction.response.edit_message(content="Excel файл", embed=None, view=None, attachments=[file])
+                        os.remove("help_stats.xlsx")
+                    
+                    case "req":
+                        cursor.execute(
+                        """SELECT 
+                                rt.level_id,
+                                rt.video_link,
+                                rt.sender_id,
+                                rt.is_sent_to_h,
+                                rt.votes_yes,
+                                rt.votes_no,
+                                rt.requested_stars
+                            FROM
+                                requests_table AS rt
+                        """)
+                        
+                        sql_data = cursor.fetchall()
+                        df = pd.DataFrame(sql_data, columns=[
+                            "ID уровня", 
+                            "Ссылка",
+                            "ID реквестера",
+                            "Прошёл отбор?",
+                            "Голосов \"За\"",
+                            "Голосов \"Против\"",
+                            "Сложность"
+                        ])
+                        writer = pd.ExcelWriter("reqs_stats.xlsx")
+                        df.to_excel(writer, sheet_name="ReqsStats", index=False)
+                        writer.close()
+
+
+                        f = open("reqs_stats.xlsx", 'rb')
+                        file = discord.File(f)
+
+                        await interaction.response.edit_message(content="Excel файл", embed=None, view=None, attachments=[file])
+                        os.remove("reqs_stats.xlsx")
+
+            except Exception as e:
+                print(e)
+
         async def callback(interaction: discord.Interaction):
             try:
+                view = ui.View()
                 if not interaction.user.guild_permissions.administrator:
                     await interaction.response.send_message("Для просмотра статистики необходимы права Администратора", ephemeral=True)
                     return
@@ -1163,6 +1278,7 @@ class RequestsCog(commands.Cog):
 
                 match data:
                     case "rev":
+                        view.clear_items()
                         emb = discord.Embed(
                             title="Статистика по ревьюверам", 
                             description="**ПРИМЕЧАНИЕ**\nЗдесь указана статистика с учётом реквестов, которые ещё не были удалены из БД",
@@ -1191,20 +1307,26 @@ class RequestsCog(commands.Cog):
                         
                         string = ""
                         for x in cursor:
-                            data = list(x)
-                            user = interaction.guild.get_member(int(data[1]))
-                            req_counter = data[3]
+                            d = list(x)
+                            user = interaction.guild.get_member(int(d[1]))
+                            req_counter = d[3]
 
-                            string += f"**{user.name if user != None else data[1]}**\n*Отправлено {req_counter}*\n\n"
+                            string += f"**{user.name if user != None else d[1]}**\n*Отправлено {req_counter}*\n\n"
+
+                        file_button = ui.Button(label="Скачать Excel файл", style=discord.ButtonStyle.gray, custom_id=data)
+                        file_button.callback = download_callback
+
+                        view.add_item(file_button)
 
                         emb.add_field(name="Список ревьюверов", value=string)
 
-                        await interaction.response.send_message(embed=emb, ephemeral=True)
+                        await interaction.response.send_message(embed=emb, view=view, ephemeral=True)
 
                         db.close()
 
 
                     case "help":
+                        view.clear_items()
                         emb = discord.Embed(
                             title="Статистика по хелперам", 
                             description="**ПРИМЕЧАНИЕ**\nЗдесь указана статистика с учётом реквестов, которые ещё не были удалены из БД",
@@ -1233,20 +1355,26 @@ class RequestsCog(commands.Cog):
 
                         string = ""
                         for x in cursor:
-                            data = list(x)
-                            user = interaction.guild.get_member(int(data[1]))
-                            req_counter = data[3]
+                            d = list(x)
+                            user = interaction.guild.get_member(int(d[1]))
+                            req_counter = d[3]
 
-                            string += f"**{user.name if user != None else data[1]}**\n*Отправлено {req_counter}*\n\n"
+                            string += f"**{user.name if user != None else d[1]}**\n*Отправлено {req_counter}*\n\n"
 
                         emb.add_field(name="Список хелперов", value=string)
 
-                        await interaction.response.send_message(embed=emb, ephemeral=True)
+                        file_button = ui.Button(label="Скачать Excel файл", style=discord.ButtonStyle.gray, custom_id=data)
+                        file_button.callback = download_callback
+
+                        view.add_item(file_button)
+
+                        await interaction.response.send_message(embed=emb, view=view, ephemeral=True)
 
                         db.close()
 
 
                     case "req":
+                        view.clear_items()
                         emb = discord.Embed(
                             title="Статистика по реквестам", 
                             description="**ПРИМЕЧАНИЕ**\nЗдесь указана статистика по реквестам, считая удалённые, начиная с 27.11.23",
@@ -1275,13 +1403,18 @@ class RequestsCog(commands.Cog):
                             value=f"На оценке (существуют): **{inDB}** \nРейтнуто: **{stats['rated']}** \nУдалено (Пустые реквесты): **{stats['deleted']}** \nОтклонено: **{stats['rejected']}**"
                         )
 
-                        await interaction.response.send_message(embed=emb, ephemeral=True)
+                        file_button = ui.Button(label="Скачать Excel файл", style=discord.ButtonStyle.gray, custom_id=data)
+                        file_button.callback = download_callback
+
+                        view.add_item(file_button)
+
+                        await interaction.response.send_message(embed=emb, view=view, ephemeral=True)
                     
                         db.close()
             except Exception as e:
                 print(e)
 
-
+        view.timeout = None
         b_rev = ui.Button(label="Ревьюверы", custom_id="rev", style=discord.ButtonStyle.blurple)
         b_rev.callback = callback
         view.add_item(b_rev)

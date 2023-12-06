@@ -1,7 +1,7 @@
 import mysql.connector
 import os
 from dotenv import load_dotenv
-import gd
+import pandas
 import asyncio
 
 load_dotenv()
@@ -19,16 +19,21 @@ except Exception as e:
 
 cursor = db.cursor()
 
-cursor.execute("SELECT * FROM requests_table")
-for x in cursor:
-    print(list(x))
-
-client = gd.Client()
-
-async def get_level(id: int) -> None:
-    level = await client.get_level(id)
-    print(level.rating)
-    print(level.requested_stars)
-
-asyncio.create_task(get_level)
-
+cursor.execute("""SELECT
+                    staff.user_discord AS admin_discord,
+                    COUNT(requests_logs.req_id) AS request_count
+                FROM
+                    staff
+                LEFT JOIN
+                    requests_logs
+                ON
+                    staff.id = requests_logs.reviewer_id
+                WHERE
+                    staff.user_role = 2
+                GROUP BY
+                    staff.user_discord
+                ORDER BY
+                    request_count DESC
+            """)
+d = cursor.fetchall()
+print(d)
