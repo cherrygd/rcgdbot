@@ -160,6 +160,7 @@ class RequestsCog(commands.Cog):
             if message.channel.id != int(config["RatesChannel"]):
                 return
             id_from_message = int(message.embeds[0].footer.text[10:])
+            print(f"[NEW RATED] event | id_from_message: {id_from_message}")
             db = connect()
             cursor = db.cursor()
 
@@ -191,7 +192,7 @@ class RequestsCog(commands.Cog):
 
                 cursor.execute(
                     "DELETE FROM requests_table WHERE level_id = '%s'", 
-                    (id_from_message)
+                    (id_from_message,)
                 )
                 db.commit()
                 await message.guild.get_member(239145251221012488).send(f"Рейтнули, проверь: {message.channel.mention}")
@@ -506,7 +507,12 @@ class RequestsCog(commands.Cog):
             original_guild = self.bot.get_guild(int(original_guild_id))
             requester = original_guild.get_member(int(level_data[2]))
 
-            emb.set_author(name=f"Отправил {requester.name if requester != None else 'Неизвестно'}", icon_url=requester.avatar.url if requester != None else None)
+            try:
+                has_avatar_or_exist = True if requester != None and requester.avatar != None else False
+            except:
+                has_avatar_or_exist = False
+
+            emb.set_author(name=f"Отправил {requester.name if requester != None else 'Неизвестно'}", icon_url=requester.avatar.url if has_avatar_or_exist else None)
             print(f"[review | Embed]: Author placed")
 
             return emb
@@ -610,7 +616,7 @@ class RequestsCog(commands.Cog):
 **• Оффтоп запрещён.**
 **• NSFW и NSFL уровни запрещены.**""", 
                 colour=discord.Colour.blurple())
-            emb.set_thumbnail(url="https://cdn.discordapp.com/icons/1125056433826840587/e48d53d402884fc6b97beb13cf038ec9.png?size=1024")
+            emb.set_thumbnail(url="https://cdn.discordapp.com/attachments/1140790207646552105/1141105250288287774/star.png?ex=65f0ba14&is=65de4514&hm=6482fa9f56ea40f232217df14b1c8cb4440a6b759d0a209e56f082b7d34ace19&")
             emb.set_footer(text="За нарушение данных правил вы можете лишиться права отправлять реквесты.")
 
             req_but = ui.Button(label="Отправить уровень", style=discord.ButtonStyle.blurple, custom_id="requestbutton", emoji="<:starrate:1141747404283056248>")
@@ -1140,6 +1146,7 @@ class RequestsCog(commands.Cog):
         )
 
         view = ui.View()
+        view.timeout = None
 
         async def download_callback(interaction: discord.Interaction):
             try:
@@ -1173,7 +1180,8 @@ class RequestsCog(commands.Cog):
                         guild = interaction.guild
 
                         for d_id in sql_data:
-                            name = guild.get_member(d_id[0]).name if guild.get_member(d_id[0]) != None else d_id[0]
+                            print(f"{d_id}: {guild.get_member(int(d_id[0]))}")
+                            name = guild.get_member(int(d_id[0])).name if guild.get_member(int(d_id[0])) != None else d_id[0]
                             sql_data[i] = (name, d_id[1])
                             i+=1
 
@@ -1186,6 +1194,7 @@ class RequestsCog(commands.Cog):
                         file = discord.File(f)
 
                         await interaction.response.edit_message(content="Excel файл", embed=None, view=None, attachments=[file])
+                        f.close()
                         os.remove("rev_stats.xlsx")
 
                     case "help":
@@ -1212,7 +1221,7 @@ class RequestsCog(commands.Cog):
                         guild = interaction.guild
                         
                         for d_id in sql_data:
-                            name = guild.get_member(d_id[0]).name if guild.get_member(d_id[0]) != None else d_id[0]
+                            name = guild.get_member(int(d_id[0])).name if guild.get_member(int(d_id[0])) != None else d_id[0]
                             sql_data[i] = (name, d_id[1])
                             i+=1
 
@@ -1225,6 +1234,7 @@ class RequestsCog(commands.Cog):
                         file = discord.File(f)
 
                         await interaction.response.edit_message(content="Excel файл", embed=None, view=None, attachments=[file])
+                        f.close()
                         os.remove("help_stats.xlsx")
                     
                     case "req":
@@ -1260,6 +1270,7 @@ class RequestsCog(commands.Cog):
                         file = discord.File(f)
 
                         await interaction.response.edit_message(content="Excel файл", embed=None, view=None, attachments=[file])
+                        f.close()
                         os.remove("reqs_stats.xlsx")
 
             except Exception as e:
