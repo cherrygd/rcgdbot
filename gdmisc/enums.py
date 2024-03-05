@@ -66,16 +66,16 @@ class RatingByEmoji(enum.Enum):
 
 class RatingCalculator:
     _rating_ranges = {
-        1: RatingByEmoji.FIRST_GOLD,
+        range(1, 2): RatingByEmoji.FIRST_GOLD,
         range(2, 3): RatingByEmoji.GOLD,
-        range(4, 5): RatingByEmoji.SILVER
+        range(3, 4): RatingByEmoji.SILVER
     }
 
     @staticmethod
     def get_cup_by_place(_place: int) -> str:
         for _range, cup in RatingCalculator._rating_ranges.items():
             if _place in _range:
-                return cup.value
+                return cup.value[0]
 
-        raise ValueError(f"Не удалось получить кубок по заданому месту: {_place}")
+        return RatingByEmoji.BRONZE.value
         

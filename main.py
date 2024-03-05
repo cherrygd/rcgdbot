@@ -40,6 +40,7 @@ async def on_guild_join(guild: discord.Guild):
 async def sync(ctx : commands.Context) -> None:
     try:
         lmt = await bot.tree.sync()
+        print(bot.cogs)
         await ctx.send(f"Синхронизированно {len(lmt)} комманды!")
     except Exception as e:
         print(e)
