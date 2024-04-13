@@ -244,7 +244,8 @@ class StatViewerCog(commands.Cog):
                                 FROM
                                     `helpers_sends_logs`
                                 WHERE
-                                    helper_id = %s
+                                    helper_id = %s AND
+                                    mod_name != "skip"
                                 GROUP BY
                                     mod_name
                                 ORDER BY
@@ -259,7 +260,7 @@ class StatViewerCog(commands.Cog):
                         value = (
                             f"``Роль      :`` **Ревьювер**\n``Оценок    :`` **{x[1]}**\n``Блокировка:`` {EH.YES.value} **Отсутствует**"
                         ) if user_role == 1 else (
-                            f"``Роль             :`` **Ревьювер**\n``Сендов           :`` **{x[1]}**\n``Любимый модератор:`` **{fav_mod[0]}**\n``Блокировка       :`` {EH.YES.value} **Отсутствует**"
+                            f"``Роль             :`` **Хелпер**\n``Сендов           :`` **{x[1]}**\n``Любимый модератор:`` **{fav_mod[0]}**\n``Блокировка       :`` {EH.YES.value} **Отсутствует**"
                         )
                         print(f"value: {value}")
                         print(f"i: {i}")
@@ -338,7 +339,7 @@ class StatViewerCog(commands.Cog):
                         level_data = parser.get_parsed_level_data(req[1])
                         is_good = req[3] + req[4] >= 5
                         reqs_value += f"{req[0]} {diff} **{level_data[0]}:**\n"
-                        reqs_value += f"{EH.LIKE.value} ``{req[3]}`` \ {EH.DISLIKE.value} ``{req[4]}`` {f'{EH.YES.value} ``Одобрено``' if is_good else ''} {f'{EH.REP.value}' if req[6] else ''}\n\n"
+                        reqs_value += f"{EH.LIKE.value} ``{req[3]}`` \\ {EH.DISLIKE.value} ``{req[4]}`` {f'{EH.YES.value} ``Одобрено``' if is_good else ''} {f'{EH.REP.value}' if req[6] else ''}\n\n"
 
                     left = len(result) - 3
 

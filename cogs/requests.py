@@ -40,6 +40,9 @@ class SelectMods(ui.Modal, title="Укажите модераторов (чер�
             staff_id = custom_id[0]
             req_id = custom_id[1]
             sender_id = int(custom_id[2])
+            
+            db = connect()
+            cursor = db.cursor()
 
             with open("HAHAHA/config.json", "r") as file:
                 config = json.load(file)
@@ -51,8 +54,6 @@ class SelectMods(ui.Modal, title="Укажите модераторов (чер�
             print(f"[SelectMods | staff id]: {staff_id}")
             print(f"[SelectMods | req_id]: {req_id}")
 
-            db = connect()
-            cursor = db.cursor()
 
             mod_list = str(self.mods_list).split(",")
             print(f"[SelectMods | mod list]: {mod_list}")
@@ -607,22 +608,34 @@ class RequestsCog(commands.Cog):
 
             view.timeout = None
 
-            emb = discord.Embed(
-                title="Здесь можно отправить свой уровень модераторам!", 
-                description="""Чтобы отправить уровень на рейт, вам нужно нажать на **кнопку** под этим сообщением. Также стоит следовать определённым правилам, чтобы не допускать помех в работе нашей команды!
+            emb_about = discord.Embed(
+                title="Здесь мы можете отправить свой уровень модераторам!",
+                description="Если Вы считаете, что Ваш уровень может получить рейт, то Вы можете его отправить на рассмотрение",
+                color=0xffd02a
+            )
 
-**• Не присылайте рофл-реквесты.**
-**• Уровни с музыкой не из Newgrounds отправляться на рейт не будут.** Это не наше требование, а требование большинства модераторов и от части самого РобТопа.
-**• Оффтоп запрещён.**
-**• NSFW и NSFL уровни запрещены.**""", 
-                colour=discord.Colour.blurple())
-            emb.set_thumbnail(url="https://cdn.discordapp.com/attachments/1140790207646552105/1141105250288287774/star.png?ex=65f0ba14&is=65de4514&hm=6482fa9f56ea40f232217df14b1c8cb4440a6b759d0a209e56f082b7d34ace19&")
-            emb.set_footer(text="За нарушение данных правил вы можете лишиться права отправлять реквесты.")
+            emb_procces = discord.Embed(
+                title="Как это работает?",
+                description="Вы отправляете свой уровень, после чего его рассматривют ревьюверы, и если уровень действительно заслуживает оценки, то его будут рассматривать хелперы, и уже они будут отправлять его модераторам",
+                color=0xffb03f
+            )
 
-            req_but = ui.Button(label="Отправить уровень", style=discord.ButtonStyle.blurple, custom_id="requestbutton", emoji="<:starrate:1141747404283056248>")
+            emb_rules = discord.Embed(
+                title="Что может помешать отправке уровня модераторам?", 
+                description="Есть определённые правила для отправки реквестов, нарушая которые Вы рискуете получить временную или перманентную блокировку в системе реквестов РКГД.", 
+                colour=0xff9252)
+            
+            emb_rules.add_field(name="В реквестах не приветствуются:", value="""
+- **Рофл-реквесты**: присылайте только серьёзные уровни, цените труд ревьюверов и хелперов.
+- **Музыка не с Newgrounds**: уровни с такой музыкой отправляться на рейт не будут. Это не наше требование, а требование большинства модераторов и от части самого РобТопа.
+- **Оффтоп запрещён**: отправка левых уровней с ссылками не по теме так же приводят к вашему бану в системе РКГД.
+- **NSFW и NSFL уровни запрещены!**""")
+            emb_rules.set_footer(text="discord.gg/rcgd", icon_url=self.bot.user.avatar.url)
+
+            req_but = ui.Button(label="Отправить уровень", style=discord.ButtonStyle.red, custom_id="requestbutton", emoji="<:starrate:1141747404283056248>")
             view.add_item(req_but)
 
-            await interaction.channel.send(embed=emb, view=view)
+            await interaction.channel.send(embeds=[emb_about, emb_procces, emb_rules], view=view)
             await interaction.response.send_message("Сообщение установлено!", ephemeral=True)
         except Exception as e:
             print(e)
@@ -745,6 +758,9 @@ class RequestsCog(commands.Cog):
                     overall_votes = int(custom_id[5])
                     disagree = int(custom_id[6])
 
+                    # if overall_votes == 0:
+                    #     print()
+
                     if yes_no != 'afterrep':
                         try:
                             cursor.execute(
@@ -808,13 +824,6 @@ class RequestsCog(commands.Cog):
                     for x in cursor:
                         count.append(list(x)[0])
                     print(count)
-                    
-                    # try:
-                    #     print("Я в трае")
-                    #     count = [count[0], count[len(count)-1]]
-                    # except IndexError:
-                    #     await interaction.response.edit_message(content="Похоже, не нашлось уровней, которые нуждаются в отправке хелперам", view=None, embed=None, delete_after=5)
-                    #     return
 
                     level_data = await self.get_level_to_review(count, interaction, user_db, votes_to_send)
                     level = level_data[0]
@@ -1049,14 +1058,31 @@ class RequestsCog(commands.Cog):
             emb.add_field(name="Им уже отправили", value=mods if len(mods) > 0 else "Данный уровень, пока что, никому не был отправлен")
             print(f"[rate | Embed]: Mods field added")
             
-            send_button = ui.Button(label="Отправить", style=discord.ButtonStyle.blurple, custom_id=f"{user_db[0]}_{level_data[0]}_{level_data[3]}")
+            send_button = ui.Button(label="Отправить", style=discord.ButtonStyle.blurple, custom_id=f"{user_db[0]}_{level_data[0]}_{level_data[3]}_send")
             check_sends = ui.Button(label="Актуальные сенды", style=discord.ButtonStyle.green, custom_id=f"{level_data[0]}_check")
-            get_data = ui.Button(label="Получить данные уровня", style=discord.ButtonStyle.gray, custom_id=f"{level_data[0]}_data")
+            get_data    = ui.Button(label="Получить данные уровня", style=discord.ButtonStyle.gray, custom_id=f"{level_data[0]}_data")
+            cancel      = ui.Button(label="Не оценивать", style=discord.ButtonStyle.red, custom_id=f"{user_db[0]}_{level_data[0]}_{level_data[3]}_cancel", row=4)
 
             async def send_callback(interaction: discord.Interaction):
                 try:
-                    custom_id = list(interaction.data.values())[0]
-                    modal = SelectMods(custom_id=custom_id, title="Укажите модераторов (через запятую)", bot=self.bot)
+                    custom_id = list(interaction.data.values())[0].split("_")
+                    mne_o4enb_lenb = list(interaction.data.values())[0]         # Ебись в рот, нормальный код
+                    print(f"[custom_id]: {custom_id}")
+                    staff_id = custom_id[0]
+                    req_id = custom_id[1]
+                    type = custom_id[3]
+                    print(f"[type]: {type}")
+
+                    if type == "cancel":
+                        cursor.execute(f"INSERT INTO helpers_sends_logs (helper_id, req_id, mod_name) VALUES ({staff_id}, {req_id}, 'skip')")
+                        db.commit()
+                        cursor.execute(f"INSERT INTO requests_logs (req_id, reviewer_id, reviewer_role) VALUES ({req_id}, {staff_id}, 2)")
+                        db.commit()
+                        await interaction.response.edit_message(content="Уровень пропущен!", view=None, embed=None, delete_after=5)
+                        db.close()
+                        return
+                    
+                    modal = SelectMods(custom_id=mne_o4enb_lenb, title="Укажите модераторов (через запятую)", bot=self.bot) # Пошёл нахуй
                     await interaction.response.send_modal(modal)
                 except Exception as e:
                     print(e)
@@ -1072,7 +1098,7 @@ class RequestsCog(commands.Cog):
                     cursor.execute(f"SELECT mod_name FROM helpers_sends_logs WHERE req_id = {req_id}")
                     mods = ""
                     for x in cursor:
-                        mods += f"{list(x)[0]}\n"
+                        mods += f"{list(x)[0]}\n" if list(x)[0] != "skip" else ...
 
                     if len(mods) == 0:
                         await interaction.response.send_message("Данный уровень ещё не был отправлен ни одному модератору", ephemeral=True)
@@ -1120,11 +1146,13 @@ class RequestsCog(commands.Cog):
             
             send_button.callback = send_callback
             check_sends.callback = check_callback
-            get_data.callback = get_data_callback
+            get_data.callback    = get_data_callback
+            cancel.callback      = send_callback
 
             view.add_item(send_button)
             view.add_item(check_sends)
             view.add_item(get_data)
+            view.add_item(cancel)
 
             await interaction.followup.send(embed=emb, view=view)
         except Exception as e:
