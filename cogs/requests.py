@@ -1053,7 +1053,11 @@ class RequestsCog(commands.Cog):
 
             print(f"[rate | mods]: {mods}")
 
-            emb.set_author(name=f"Отправил {requester.name if requester != None else 'Неизвестно'}", icon_url=requester.avatar.url if requester != None else None)
+            icon = None
+            if requester != None:
+                icon = requester.avatar.url if requester.avatar.url != None else ''
+
+            emb.set_author(name=f"Отправил {requester.name if requester != None else 'Неизвестно'}", icon_url=icon)
             print(f"[rate | Embed]: Author placed")
             emb.add_field(name="Им уже отправили", value=mods if len(mods) > 0 else "Данный уровень, пока что, никому не был отправлен")
             print(f"[rate | Embed]: Mods field added")
