@@ -1,8 +1,9 @@
 import enum
 
+
 class Emojies(enum.Enum):
     # СТАТУС
-    NO  = "<:no:1141747496813609011>"
+    NO = "<:no:1141747496813609011>"
     YES = "<:yes:1141747509899841637>"
     REP = "<:report:1141769582378496091>"
 
@@ -10,21 +11,20 @@ class Emojies(enum.Enum):
     HO = "<:ho:1141757802138833058>"
 
     # ЗВЁЗДЫ
-    STAR   = "<:starrate:1141747404283056248>"
-    STAR2  = "<:staar:1141766298997637190>"
+    STAR = "<:starrate:1141747404283056248>"
+    STAR2 = "<:staar:1141766298997637190>"
     FEATUR = "<:featured:1141747420808626236>"
-    EPIC   = "<:epic:1141747435639668906>"
-    CP     = "<:cp:1141823815081545839>"
+    EPIC = "<:epic:1141747435639668906>"
+    CP = "<:cp:1141823815081545839>"
 
     # СТАТИСТИКА
-    DISLIKE  = "<:dislike:1141747479906373793>"
-    LIKE     = "<:like:1141747466639777922>"
+    DISLIKE = "<:dislike:1141747479906373793>"
+    LIKE = "<:like:1141747466639777922>"
     DOWNLOAD = "<:download:1142445126245953576>"
 
     # ЦВЕТА
-    GREEN = "<:green:1120494257820667924>" 
-    RED   = "<:red:1120493523821670450>" 
-
+    GREEN = "<:green:1120494257820667924>"
+    RED = "<:red:1120493523821670450>"
 
 
 class DifficultyByEmoji(enum.Enum):
@@ -36,6 +36,7 @@ class DifficultyByEmoji(enum.Enum):
     Harder = "<:harder:1141747334384988201>"
     Insane = "<:insane:1141747349673218138>"
     Demon = "<:demon:1141747367696154645>"
+
 
 class DifficultyCalculator:
     _difficulty_ranges = {
@@ -56,19 +57,20 @@ class DifficultyCalculator:
                 return emoji.value
 
         raise ValueError(f"Не удалось получить emoji по заданным звёздам: {_stars}")
-        
+
 
 class RatingByEmoji(enum.Enum):
-    FIRST_GOLD = "<:cup1:1201670861950558229>",
-    GOLD = "<:cup2:1201670932477775892>",
-    SILVER = "<:cup3:1201670966443253760>",
+    FIRST_GOLD = ("<:cup1:1201670861950558229>",)
+    GOLD = ("<:cup2:1201670932477775892>",)
+    SILVER = ("<:cup3:1201670966443253760>",)
     BRONZE = "<:cup4:1201671032403144734>"
+
 
 class RatingCalculator:
     _rating_ranges = {
         range(1, 2): RatingByEmoji.FIRST_GOLD,
         range(2, 3): RatingByEmoji.GOLD,
-        range(3, 4): RatingByEmoji.SILVER
+        range(3, 4): RatingByEmoji.SILVER,
     }
 
     @staticmethod
@@ -78,4 +80,3 @@ class RatingCalculator:
                 return cup.value[0]
 
         return RatingByEmoji.BRONZE.value
-        
