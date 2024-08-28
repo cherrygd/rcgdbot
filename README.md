@@ -10,3 +10,6 @@
 - DB_NAME `Имя БД`
 - DB_USER `Юзер БД`
 - DB_PASSWORD `Пароль для входа в БД`
+
+Для БД (docker):
+- MYSQL_ROOT_PASSWORD `Пароль для входа в БД`
