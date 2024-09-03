@@ -127,7 +127,7 @@ class Administration(commands.Cog):
                     emb = discord.Embed(
                         title="Вы были поставлены на роль Ревьювера!",
                         description=f"Вас назначил **{interaction.user.name}**",
-                        colour=discord.Colour.green(),
+                        color=discord.Color.green(),
                     )
                     emb.add_field(
                         name="Что это значит?",
@@ -155,7 +155,7 @@ class Administration(commands.Cog):
                     emb = discord.Embed(
                         title="Вы были поставлены на роль Хелпера!",
                         description=f"Вас назначил **{interaction.user.name}**",
-                        colour=discord.Colour.green(),
+                        color=discord.Color.green(),
                     )
                     emb.add_field(
                         name="Что это значит?",
@@ -183,7 +183,7 @@ class Administration(commands.Cog):
                     emb = discord.Embed(
                         title="Вы были поставлены на роль Мента!",
                         description=f"Вас назначил **{interaction.user.name}**",
-                        colour=discord.Colour.green(),
+                        color=discord.Color.green(),
                     )
                     emb.add_field(
                         name="Что это значит?",
@@ -206,7 +206,7 @@ class Administration(commands.Cog):
                     emb = discord.Embed(
                         title="Вы были забанены в системе RCGD бота!",
                         description=f"Вас забанил **{interaction.user.name}**",
-                        colour=discord.Colour.red(),
+                        color=discord.Color.red(),
                     )
                     emb.add_field(
                         name="Почему так произошло?",
@@ -229,7 +229,7 @@ class Administration(commands.Cog):
                     emb = discord.Embed(
                         title="Вы были сняты со своей должности!",
                         description=f"Вас снял **{interaction.user.name}**",
-                        colour=discord.Colour.red(),
+                        color=discord.Color.red(),
                     )
                     emb.add_field(
                         name="Почему так произошло?",
@@ -286,7 +286,7 @@ class Administration(commands.Cog):
             emb = discord.Embed(
                 title="Вы были разбанены в системе RCGD бота!",
                 description=f"Вас разбанил **{interaction.user.name}**",
-                colour=discord.Colour.purple(),
+                color=discord.Color.purple(),
             )
             emb.add_field(
                 name="Что это значит?",

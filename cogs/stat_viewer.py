@@ -233,7 +233,7 @@ class StatViewerCog(commands.Cog):
                 emb = discord.Embed(
                     title=f"Статистика {user.name}",
                     description=f"Вы являетесь **{desc}** сервера РКГД",
-                    colour=discord.Color.gold(),
+                    color=discord.Color.gold(),
                 )
                 print("Я тут вообще?")
                 cursor.execute(
@@ -315,7 +315,7 @@ class StatViewerCog(commands.Cog):
                     emb = discord.Embed(
                         title=f"Статистика {user.name}",
                         description=f"В данной статистике можно посмотреть текущее состояние Ваших реквестов",
-                        colour=discord.Color.green(),
+                        color=discord.Color.green(),
                     )
 
                     cursor.execute(

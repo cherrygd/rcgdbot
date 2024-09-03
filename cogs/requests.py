@@ -356,7 +356,7 @@ class RequestsCog(commands.Cog):
                     emb = discord.Embed(
                         title="Вы были сняты со своей должности!",
                         description=f"Вас снял **{interaction.user.name}**",
-                        colour=discord.Colour.red(),
+                        color=discord.Color.red(),
                     )
                     emb.add_field(
                         name="Почему так произошло?",
@@ -403,7 +403,7 @@ class RequestsCog(commands.Cog):
                     emb = discord.Embed(
                         title="Вы были забанены в системе RCGD бота!",
                         description=f"Вас забанил **{interaction.user.name}**",
-                        colour=discord.Colour.red(),
+                        color=discord.Color.red(),
                     )
                     emb.add_field(
                         name="Почему так произошло?",
@@ -462,7 +462,7 @@ class RequestsCog(commands.Cog):
         emb = discord.Embed(
             title="Укажите наказание",
             description="Выберите, как нужно наказать реквестера, если нужно вообще его наказывать",
-            colour=discord.Colour.red(),
+            color=discord.Color.red(),
         )
         emb.set_author(
             name=interaction.message.embeds[0].author.name,
@@ -507,7 +507,7 @@ class RequestsCog(commands.Cog):
         emb = discord.Embed(
             title="Укажите наказание",
             description="Выберите, как нужно наказать реквестера, если нужно вообще его наказывать",
-            colour=discord.Colour.red(),
+            color=discord.Color.red(),
         )
         emb.set_author(
             name=interaction.message.embeds[0].author.name,
@@ -664,7 +664,7 @@ class RequestsCog(commands.Cog):
             emb = discord.Embed(
                 title="Уровень нуждается в оценке",
                 description=f"__{level[0]}__ by __{level[1]}__",
-                colour=discord.Colour.blurple(),
+                color=discord.Color.blurple(),
             )
             print(f"[review | Embed]: Embed created")
             print(f"[review | original_guild_id]: {original_guild_id}")
@@ -773,7 +773,7 @@ class RequestsCog(commands.Cog):
                 new_embed = discord.Embed(
                     title="Твой реквест рейтнули!",
                     description=f"Твой реквест __{level_obj[0]}__ был оценён!",
-                    colour=discord.Colour.green(),
+                    color=discord.Color.green(),
                 )
                 new_embed.add_field(
                     name="Наши поздравления!",
@@ -827,7 +827,7 @@ class RequestsCog(commands.Cog):
             emb_rules = discord.Embed(
                 title="Что может помешать отправке уровня модераторам?",
                 description="Есть определённые правила для отправки реквестов, нарушая которые Вы рискуете получить временную или перманентную блокировку в системе реквестов РКГД.",
-                colour=0xFF9252,
+                color=0xFF9252,
             )
 
             emb_rules.add_field(
@@ -1211,7 +1211,7 @@ class RequestsCog(commands.Cog):
                     emb = discord.Embed(
                         title="Новый репорт!",
                         description=f"Ревьювер __{interaction.user.name}__ создал новый репорт на уровень __{level_data[0]}__",
-                        colour=discord.Colour.red(),
+                        color=discord.Color.red(),
                     )
                     emb.set_author(
                         name=f"Request ID: {req_id}",
@@ -1351,7 +1351,7 @@ class RequestsCog(commands.Cog):
             emb = discord.Embed(
                 title="Уровень нуждается в оценке",
                 description=f"__{level[0]}__ by __{level[1]}__",
-                colour=discord.Colour.blurple(),
+                color=discord.Color.blurple(),
             )
             emb.add_field(
                 name="Инфо",
@@ -1555,7 +1555,7 @@ class RequestsCog(commands.Cog):
         menu_emb = discord.Embed(
             title="Меню статистики",
             description="Здесь можно посмотреть всю статистику о реквестах, работе стафф состава и т.д.",
-            colour=discord.Colour.purple(),
+            color=discord.Color.purple(),
         )
 
         view = ui.View()
@@ -1739,7 +1739,7 @@ class RequestsCog(commands.Cog):
                         emb = discord.Embed(
                             title="Статистика по ревьюверам",
                             description="**ПРИМЕЧАНИЕ**\nЗдесь указана статистика с учётом реквестов, которые ещё не были удалены из БД",
-                            colour=discord.Colour.purple(),
+                            color=discord.Color.purple(),
                         )
 
                         cursor.execute(
@@ -1793,7 +1793,7 @@ class RequestsCog(commands.Cog):
                         emb = discord.Embed(
                             title="Статистика по хелперам",
                             description="**ПРИМЕЧАНИЕ**\nЗдесь указана статистика с учётом реквестов, которые ещё не были удалены из БД",
-                            colour=discord.Colour.purple(),
+                            color=discord.Color.purple(),
                         )
 
                         cursor.execute(
@@ -1847,7 +1847,7 @@ class RequestsCog(commands.Cog):
                         emb = discord.Embed(
                             title="Статистика по реквестам",
                             description="**ПРИМЕЧАНИЕ**\nЗдесь указана статистика по реквестам, считая удалённые, начиная с 27.11.23",
-                            colour=discord.Colour.purple(),
+                            color=discord.Color.purple(),
                         )
 
                         cursor.execute(
