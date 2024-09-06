@@ -145,9 +145,8 @@ class FormForReq(ui.Modal, title="Отправка уровня хелперам
             print(f"[FormForReq | lvl_link] : {lvl_link}")
             print(f"[FormForReq | sender_id] : {sender_id}")
 
-            try:
-                level_data = parser.get_parsed_level_data(lvl_id)
-            except IndexError:
+            level_data = parser.get_parsed_level_data(lvl_id)
+            if level_data == None:
                 await interaction.response.send_message(
                     f"<:no:1141747496813609011> Ошибка: указанный уровень не быль найден. Проверьте корректность введённого Вами ID, и повторите попытку!\n*Введённый ID: {lvl_id}*",
                     ephemeral=True,
@@ -171,6 +170,8 @@ class FormForReq(ui.Modal, title="Отправка уровня хелперам
                     ephemeral=True,
                 )
                 return
+
+            print(f"level_data: {level_data}")
 
             if int(level_data[3]) != 0:
                 await interaction.response.send_message(
@@ -727,18 +728,23 @@ class RequestsCog(commands.Cog):
         custom_id = list(interaction.data.values())[0]
 
         if custom_id == "requestbutton":
-            print("Я кнопка!")
             db = connect()
-            cursosr = db.cursor()
+            cur = db.cursor()
 
-            cursosr.execute(
-                f"SELECT requester_id FROM bans WHERE requester_id = '{interaction.user.id}'"
+            cur.execute(
+                "SELECT COUNT(*) FROM bans WHERE requester_id = %s",
+                (interaction.user.id,),
             )
-            for x in cursosr:
+
+            count = cur.fetchone()[0]
+            print(f"count: {count}")
+
+            if count > 0:
                 await interaction.response.send_message(
                     "<:no:1141747496813609011> Ошибка: ты не можешь отправлять реквесты, так как тебя заблокировали Менты.",
                     ephemeral=True,
                 )
+                return
 
             db.close()
             mod = FormForReq()
